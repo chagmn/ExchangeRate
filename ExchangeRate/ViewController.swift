@@ -5,6 +5,7 @@
 //  Created by 창민 on 2021/01/13.
 //
 
+import Foundation
 import UIKit
 import SwiftUI
 import Alamofire
@@ -12,6 +13,9 @@ import SwiftyJSON
 
 class ViewController: UIViewController {
 
+    let country = ["한국(KRW)", "일본(JPY)", "필리핀(PHP)"]
+    var resultPrice: Int = 0
+    
     var mainTitle: UILabel = {
         let label = UILabel()
         label.text = "환율 계산"
@@ -27,6 +31,14 @@ class ViewController: UIViewController {
         return label
     }()
     
+    var sendCountryLabel2: UILabel = {
+        let label = UILabel()
+        label.text = "미국(USD)"
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    
     var getCountryLabel: UILabel = {
         let label = UILabel()
         label.text = "수취국가 : "
@@ -34,9 +46,31 @@ class ViewController: UIViewController {
         return label
     }()
     
+    var getCountryLabel2: UITextField = {
+        let textfield = UITextField()
+        textfield.text = "한국(KRW)"
+        textfield.tintColor = .clear
+        textfield.translatesAutoresizingMaskIntoConstraints = false
+        return textfield
+    }()
+    
     var exchangeRateLabel: UILabel = {
         let label = UILabel()
         label.text = "환율 : "
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    var exchangeRateValueLabel: UILabel = {
+        let label = UILabel()
+        label.text = ""
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    var exchangeRateLabel2: UILabel = {
+        let label = UILabel()
+        label.text = "KRW / USD"
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -48,6 +82,12 @@ class ViewController: UIViewController {
         return label
     }()
     
+    var time2: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
     var sendPrice: UILabel = {
         let label = UILabel()
         label.text = "송금액 : "
@@ -55,28 +95,44 @@ class ViewController: UIViewController {
         return label
     }()
     
-    var sendCountryLabel2: UILabel = {
+    var price: UITextField = {
+        let textfield = UITextField()
+        textfield.translatesAutoresizingMaskIntoConstraints = false
+        textfield.borderStyle = .line
+        textfield.textAlignment = .right
+        textfield.keyboardType = .numberPad
+        let toolBarKeyboard = UIToolbar()
+        toolBarKeyboard.sizeToFit()
+        let btnDoneBar = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(doneBtnClicked))
+        toolBarKeyboard.items = [btnDoneBar]
+        textfield.inputAccessoryView = toolBarKeyboard
+        textfield.addTarget(self, action: #selector(textFieldDidChange(_:)),
+                                  for: .editingChanged)
+        textfield.addTarget(self, action: #selector(textfieldFilter(_:)), for: .editingChanged)
+        return textfield
+    }()
+    
+    var usdlabel: UILabel = {
         let label = UILabel()
-        label.text = "미국(USD)"
+        label.text = "USD"
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
-    
-    var getCountryLabel2: UITextField = {
-        let label = UITextField()
-        label.text = "한국(KRW)"
-        label.tintColor = .clear
+
+    var resultlabel: UILabel = {
+        let label = UILabel()
+        label.text = "수취금액은 0 KRW 입니다"
+        label.font = UIFont.systemFont(ofSize: 20.0)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
-    
-    let country = ["한국(KRW)", "일본(JPY)", "필리핀(PHP)"]
    
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         createPickerView()
-        
+        getTime()
+        getExchangeRateInfo(num: 0)
         addSubview()
         autoLayout()
     }
@@ -93,6 +149,7 @@ class ViewController: UIViewController {
         self.view.endEditing(true)
     }
     
+    
     // MARK :- addSubview Function
     func addSubview(){
         view.addSubview(mainTitle)
@@ -101,11 +158,110 @@ class ViewController: UIViewController {
         view.addSubview(getCountryLabel)
         view.addSubview(getCountryLabel2)
         view.addSubview(exchangeRateLabel)
+        view.addSubview(exchangeRateValueLabel)
+        view.addSubview(exchangeRateLabel2)
         view.addSubview(time)
+        view.addSubview(time2)
         view.addSubview(sendPrice)
+        view.addSubview(price)
+        view.addSubview(usdlabel)
+        view.addSubview(resultlabel)
         
     }
+    
+    // 10000달러 초과 송금시 발생하는 알림
+    func showAlert(){
+        let alert = UIAlertController(title: "송금액이 올바르지 않습니다.", message: "", preferredStyle: UIAlertController.Style.alert)
+        let cancel = UIAlertAction(title: "확인", style: .cancel, handler: nil)
+        
+        alert.addAction(cancel)
+        self.present(alert, animated: true, completion: nil)
+        self.price.text = ""
+    }
+    
+    // 조회시간 갱신
+    func getTime(){
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        self.time2.text = formatter.string(from: Date())
+    }
+    
+    // 환율정보 가져오기, 매개변수는 수취국가 확인
+    func getExchangeRateInfo(num: Int){
+        let url = "http://api.currencylayer.com/live?access_key=7ac521acde6b87664278d786cfb74364"
+        var krw: String = ""
+        var jpy: String = ""
+        var php: String = ""
+        
+        AF.request(url)
+          .responseJSON(completionHandler: { response in
+            let responseJson =  JSON(response.value!)
 
+            for (country, value): (String, JSON) in responseJson["quotes"]{
+                if country == "USDKRW" && num == 0{
+                    krw = self.changeNumFormatter(value: value.doubleValue)
+                    self.exchangeRateValueLabel.text = krw
+                } else if country == "USDJPY" && num == 1{
+                    jpy = self.changeNumFormatter(value: value.doubleValue)
+                    self.exchangeRateValueLabel.text = jpy
+                } else if country == "USDPHP" && num == 2{
+                    php = self.changeNumFormatter(value: value.doubleValue)
+                    self.exchangeRateValueLabel.text = php
+                }
+            }
+        })
+    }
+    
+    // 숫자 형식 맞추는 함수
+    func changeNumFormatter(value: Double) -> String{
+        let numberFormatter = NumberFormatter()
+        numberFormatter.numberStyle = .decimal
+        
+        let str = String(format: "%.2f", value)
+        let splitNum = String(str).split(separator: ".")
+        let frontNum = numberFormatter.string(from: NSNumber(value: Int(splitNum[0])!))!
+        let result = frontNum + "." + splitNum[1]
+        
+        return result
+    }
+    
+    // MARK :- objc Functions
+    // textField가 바뀌면 발생하는 이벤트 처리
+    @objc func textFieldDidChange(_ textField: UITextField) {
+        let exchangerate = Double(self.exchangeRateValueLabel.text!) ?? 0.0
+        let sendPrice = Double(self.price.text!) ?? 0.0
+        // 10000달러 초과 송금시 에러 발생
+        if sendPrice > 10000  {
+            showAlert()
+        }
+        let value: Double = exchangerate * sendPrice
+        let country = getCountryLabel2.text?.components(separatedBy: ["(",")"])
+        
+        let result = changeNumFormatter(value: value)
+        
+        switch country![1] {
+        case "JPY":
+            resultlabel.text = "수취금액은 \(result) JPY 입니다."
+        case "PHP":
+            resultlabel.text = "수취금액은 \(result) PHP 입니다."
+        default:
+            resultlabel.text = "수취금액은 \(result) KRW 입니다."
+        }
+    }
+
+    // 송금액의 시작이 0인 상황 방지 - 입력값을 정수로 변환해서 방지
+    @objc func textfieldFilter(_ textField: UITextField){
+        if let text = textField.text, let intText = Int(text) {
+          textField.text = "\(intText)"
+        } else {
+          textField.text = ""
+        }
+    }
+    
+    @objc func doneBtnClicked(){
+        self.view.endEditing(true)
+    }
+    
     // MARK :- autoLayout Function
     func autoLayout(){
         mainTitle.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
@@ -126,11 +282,31 @@ class ViewController: UIViewController {
         exchangeRateLabel.rightAnchor.constraint(equalTo: sendCountryLabel.rightAnchor).isActive = true
         exchangeRateLabel.topAnchor.constraint(equalTo: getCountryLabel.bottomAnchor, constant: 15).isActive = true
         
+        exchangeRateValueLabel.topAnchor.constraint(equalTo: exchangeRateLabel.topAnchor).isActive = true
+        exchangeRateValueLabel.leftAnchor.constraint(equalTo: getCountryLabel2.leftAnchor).isActive = true
+        
+        exchangeRateLabel2.leftAnchor.constraint(equalTo: exchangeRateValueLabel.rightAnchor, constant: 5).isActive = true
+        exchangeRateLabel2.topAnchor.constraint(equalTo: exchangeRateLabel.topAnchor).isActive = true
+        
+        
         time.rightAnchor.constraint(equalTo: sendCountryLabel.rightAnchor).isActive = true
         time.topAnchor.constraint(equalTo: exchangeRateLabel.bottomAnchor, constant: 15).isActive = true
         
+        time2.leftAnchor.constraint(equalTo: sendCountryLabel2.leftAnchor).isActive = true
+        time2.topAnchor.constraint(equalTo: time.topAnchor).isActive = true
+        
         sendPrice.rightAnchor.constraint(equalTo: sendCountryLabel.rightAnchor).isActive = true
         sendPrice.topAnchor.constraint(equalTo: time.bottomAnchor, constant: 15).isActive = true
+        
+        price.leftAnchor.constraint(equalTo: sendCountryLabel2.leftAnchor).isActive = true
+        price.centerYAnchor.constraint(equalTo: sendPrice.centerYAnchor).isActive = true
+        price.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        
+        usdlabel.topAnchor.constraint(equalTo: sendPrice.topAnchor).isActive = true
+        usdlabel.leftAnchor.constraint(equalTo: price.rightAnchor, constant: 5).isActive = true
+    
+        resultlabel.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+        resultlabel.topAnchor.constraint(equalTo: price.bottomAnchor, constant: 50).isActive = true
     }
 }
 
@@ -148,36 +324,24 @@ extension ViewController: UIPickerViewDelegate, UIPickerViewDataSource, UITextFi
         return country[row]
     }
     
+    // 선택하면 글씨 바뀌면서 환율 정보 가져오기 + 조회시간 갱신
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
-        getCountryLabel2.text = country[row]
-    }
-}
-
-
-
-// preview 사용해서 바로바로 확인
-#if DEBUG
-import SwiftUI
-struct ViewControllerRepresnetable: UIViewControllerRepresentable{
-    
-    func updateUIViewController(_ uiViewController: UIViewControllerType, context: Context) {
-    }
-    
-    @available(iOS 13.0, *)
-    func makeUIViewController(context: Context) -> some UIViewController {
-        ViewController()
-    }
-}
-
-struct ViewController_Previews: PreviewProvider {
-    static var previews: some View{
-        Group {
-            ViewControllerRepresnetable()
-                .edgesIgnoringSafeArea(/*@START_MENU_TOKEN@*/.all/*@END_MENU_TOKEN@*/)
-                .previewDevice("iPhone 12")
-                .previewDisplayName("아이폰12")
+        switch row{
+        case 1:
+            exchangeRateLabel2.text = "JPY / USD"
+            getExchangeRateInfo(num: 1)
+            
+        case 2:
+            exchangeRateLabel2.text = "PHP / USD"
+            getExchangeRateInfo(num: 2)
+            
+        default:
+            exchangeRateLabel2.text = "KRW / USD"
+            getExchangeRateInfo(num: 0)
+            
         }
+        getCountryLabel2.text = country[row]
+        textFieldDidChange(price)
+        getTime()
     }
 }
-#endif
-
