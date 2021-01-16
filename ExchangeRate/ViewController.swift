@@ -131,7 +131,6 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         createPickerView()
-        getTime()
         getExchangeRateInfo(num: 0)
         addSubview()
         autoLayout()
@@ -188,6 +187,8 @@ class ViewController: UIViewController {
     
     // 환율정보 가져오기, 매개변수는 수취국가 확인
     func getExchangeRateInfo(num: Int){
+        getTime()
+        
         let url = "http://api.currencylayer.com/live?access_key=7ac521acde6b87664278d786cfb74364"
         var krw: String = ""
         var jpy: String = ""
@@ -226,20 +227,29 @@ class ViewController: UIViewController {
     }
     
     // MARK :- objc Functions
-    // textField가 바뀌면 발생하는 이벤트 처리
+    // textField가 바뀌면 수취금액 변경 = 환율 x 송금액 = 수취금액 (+ 국가 화폐 단위)
     @objc func textFieldDidChange(_ textField: UITextField) {
-        let exchangerate = Double(self.exchangeRateValueLabel.text!) ?? 0.0
-        let sendPrice = Double(self.price.text!) ?? 0.0
+        // 환율에서 , 없애기
+        let stringValue = exchangeRateValueLabel.text!.components(separatedBy: ",")
+        var tempString: String = ""
+        for i in stringValue{
+            tempString += i
+        }
+        
+        let exchangeRate = Double(tempString)! // 환율
+        let sendPrice = Double(self.price.text!) ?? 0.0 // 송금액
+        
         // 10000달러 초과 송금시 에러 발생
         if sendPrice > 10000  {
             showAlert()
         }
-        let value: Double = exchangerate * sendPrice
-        let country = getCountryLabel2.text?.components(separatedBy: ["(",")"])
         
+        let value: Double = exchangeRate * sendPrice
         let result = changeNumFormatter(value: value)
+        print(result)
+        let country = getCountryLabel2.text!.components(separatedBy: ["(",")"])
         
-        switch country![1] {
+        switch country[1] {
         case "JPY":
             resultlabel.text = "수취금액은 \(result) JPY 입니다."
         case "PHP":
@@ -324,13 +334,17 @@ extension ViewController: UIPickerViewDelegate, UIPickerViewDataSource, UITextFi
         return country[row]
     }
     
-    // 선택하면 글씨 바뀌면서 환율 정보 가져오기 + 조회시간 갱신
+    // 선택하면 글씨 바뀌면서 환율 정보 가져오기 + 조회시간 갱신 + 수취금액 갱신
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+        
+        // 순서 중요!
+        // 수취국가 변경 -> 환율 변경 -> 수취금액 계산
+        getCountryLabel2.text = country[row] //수취국가 변경하고
+        
         switch row{
         case 1:
             exchangeRateLabel2.text = "JPY / USD"
             getExchangeRateInfo(num: 1)
-            
         case 2:
             exchangeRateLabel2.text = "PHP / USD"
             getExchangeRateInfo(num: 2)
@@ -338,10 +352,8 @@ extension ViewController: UIPickerViewDelegate, UIPickerViewDataSource, UITextFi
         default:
             exchangeRateLabel2.text = "KRW / USD"
             getExchangeRateInfo(num: 0)
-            
         }
-        getCountryLabel2.text = country[row]
-        textFieldDidChange(price)
-        getTime()
+        
+        textFieldDidChange(price) // 해당 국가에 맞게 수취금액 변경
     }
 }
