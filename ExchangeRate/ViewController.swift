@@ -12,9 +12,9 @@ import Alamofire
 import SwiftyJSON
 
 class ViewController: UIViewController {
-
+    
+    // Picker View 데이터값
     let country = ["한국(KRW)", "일본(JPY)", "필리핀(PHP)"]
-    var resultPrice: Int = 0
     
     var mainTitle: UILabel = {
         let label = UILabel()
@@ -127,7 +127,7 @@ class ViewController: UIViewController {
         return label
     }()
    
-
+    // MARK:- Override Functions
     override func viewDidLoad() {
         super.viewDidLoad()
         createPickerView()
@@ -136,6 +136,12 @@ class ViewController: UIViewController {
         autoLayout()
     }
     
+    // 화면 터치하면 수정 끝 - 키보드, 피커뷰
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        self.view.endEditing(true)
+    }
+    
+    // MARK:- Functions
     // pickerView 생성
     func createPickerView(){
         let pickerView = UIPickerView()
@@ -144,12 +150,6 @@ class ViewController: UIViewController {
         getCountryLabel2.inputView = pickerView
     }
     
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        self.view.endEditing(true)
-    }
-    
-    
-    // MARK :- addSubview Function
     func addSubview(){
         view.addSubview(mainTitle)
         view.addSubview(sendCountryLabel)
@@ -186,8 +186,9 @@ class ViewController: UIViewController {
     }
     
     // 환율정보 가져오기, 매개변수는 수취국가 확인
+    // 환율 가져오고 -> 라벨 변경 -> 수취금액 변경
     func getExchangeRateInfo(num: Int){
-        getTime()
+        self.getTime()
         
         let url = "http://api.currencylayer.com/live?access_key=7ac521acde6b87664278d786cfb74364"
         var krw: String = ""
@@ -195,21 +196,25 @@ class ViewController: UIViewController {
         var php: String = ""
         
         AF.request(url)
-          .responseJSON(completionHandler: { response in
+            .responseJSON(completionHandler: { [self] response in
             let responseJson =  JSON(response.value!)
 
             for (country, value): (String, JSON) in responseJson["quotes"]{
                 if country == "USDKRW" && num == 0{
                     krw = self.changeNumFormatter(value: value.doubleValue)
                     self.exchangeRateValueLabel.text = krw
+                    self.exchangeRateLabel2.text = "KRW / USD"
                 } else if country == "USDJPY" && num == 1{
                     jpy = self.changeNumFormatter(value: value.doubleValue)
                     self.exchangeRateValueLabel.text = jpy
+                    self.exchangeRateLabel2.text = "JPY / USD"
                 } else if country == "USDPHP" && num == 2{
                     php = self.changeNumFormatter(value: value.doubleValue)
                     self.exchangeRateValueLabel.text = php
+                    self.exchangeRateLabel2.text = "PHP / USD"
                 }
             }
+            self.changePriceLabel()
         })
     }
     
@@ -226,9 +231,8 @@ class ViewController: UIViewController {
         return result
     }
     
-    // MARK :- objc Functions
-    // textField가 바뀌면 수취금액 변경 = 환율 x 송금액 = 수취금액 (+ 국가 화폐 단위)
-    @objc func textFieldDidChange(_ textField: UITextField) {
+    // 수취금액 변경 함수
+    func changePriceLabel(){
         // 환율에서 , 없애기
         let stringValue = exchangeRateValueLabel.text!.components(separatedBy: ",")
         var tempString: String = ""
@@ -236,7 +240,7 @@ class ViewController: UIViewController {
             tempString += i
         }
         
-        let exchangeRate = Double(tempString)! // 환율
+        let exchangeRate = Double(tempString) ?? 0.0 // 환율
         let sendPrice = Double(self.price.text!) ?? 0.0 // 송금액
         
         // 10000달러 초과 송금시 에러 발생
@@ -246,7 +250,7 @@ class ViewController: UIViewController {
         
         let value: Double = exchangeRate * sendPrice
         let result = changeNumFormatter(value: value)
-        print(result)
+
         let country = getCountryLabel2.text!.components(separatedBy: ["(",")"])
         
         switch country[1] {
@@ -258,7 +262,13 @@ class ViewController: UIViewController {
             resultlabel.text = "수취금액은 \(result) KRW 입니다."
         }
     }
-
+    
+    // MARK:- objc Functions
+    // textField가 바뀌면 수취금액 변경
+    @objc func textFieldDidChange(_ textField: UITextField) {
+        changePriceLabel()
+    }
+    
     // 송금액의 시작이 0인 상황 방지 - 입력값을 정수로 변환해서 방지
     @objc func textfieldFilter(_ textField: UITextField){
         if let text = textField.text, let intText = Int(text) {
@@ -320,7 +330,7 @@ class ViewController: UIViewController {
     }
 }
 
-// MARK :- PickerView Extension
+// MARK:- PickerView Extension
 extension ViewController: UIPickerViewDelegate, UIPickerViewDataSource, UITextFieldDelegate{
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
         return 1
@@ -337,23 +347,16 @@ extension ViewController: UIPickerViewDelegate, UIPickerViewDataSource, UITextFi
     // 선택하면 글씨 바뀌면서 환율 정보 가져오기 + 조회시간 갱신 + 수취금액 갱신
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
         
-        // 순서 중요!
         // 수취국가 변경 -> 환율 변경 -> 수취금액 계산
-        getCountryLabel2.text = country[row] //수취국가 변경하고
+        getCountryLabel2.text = country[row] // 수취국가 변경하고
         
-        switch row{
+        switch row{ // 국가에 맞게 환율 갱신
         case 1:
-            exchangeRateLabel2.text = "JPY / USD"
             getExchangeRateInfo(num: 1)
         case 2:
-            exchangeRateLabel2.text = "PHP / USD"
             getExchangeRateInfo(num: 2)
-            
         default:
-            exchangeRateLabel2.text = "KRW / USD"
             getExchangeRateInfo(num: 0)
         }
-        
-        textFieldDidChange(price) // 해당 국가에 맞게 수취금액 변경
     }
 }
