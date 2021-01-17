@@ -9,8 +9,8 @@
 - 수취국가 picker view와 숫자 키패드는 화면터치하면 사라집니다.
 
 
-![아이폰12](https://user-images.githubusercontent.com/41609708/104838506-a0f0b880-58fe-11eb-94c4-9f282d418caa.png ){: width="100" height="100"}
+![아이폰12](https://user-images.githubusercontent.com/41609708/104838506-a0f0b880-58fe-11eb-94c4-9f282d418caa.png =100x100)
 
-![아이패드 프로 4세대](https://user-images.githubusercontent.com/41609708/104838520-b82fa600-58fe-11eb-813b-1eb2d45de584.png){: width="100" height="100"}
+![아이패드 프로 4세대](https://user-images.githubusercontent.com/41609708/104838520-b82fa600-58fe-11eb-813b-1eb2d45de584.png =100x100)
 
 
