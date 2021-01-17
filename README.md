@@ -9,5 +9,6 @@
 - 수취국가 picker view와 숫자 키패드는 화면터치하면 사라집니다.
 - Unit Test는 아직 지식이 부족해서 구현하지 못했습니다.
 
-- 구동 예시는 아래와 같습니다. (왼쪽 : 아이폰12, 오른쪽 : 아이패드 프로 4세대)
+- 구동 예시는 아래와 같습니다. (왼쪽 : 아이폰12, 오른쪽 : 아이패드 프로 4세대)  
+
 <img src = "https://user-images.githubusercontent.com/41609708/104838925-473dbd80-5901-11eb-925c-fc34eaada755.png" width="40%">  <img src = "https://user-images.githubusercontent.com/41609708/104838520-b82fa600-58fe-11eb-813b-1eb2d45de584.png" width="40%">
